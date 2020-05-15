@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <style type="text/css">
+      html {
+        margin: 0;
+        padding: 0;
+        border: 0;
+        display: block;
+      }
+      body {
+        margin: 0;
+        padding: 0;
+        border: 0;
+        display: block;
+      }
+    </style>
+  </head>
+
+  <body>
+  <script src="http://gamingJS.com/Three.js"></script>
+<script src="http://gamingJS.com/Tween.js"></script>
+<script src="http://gamingJS.com/ChromeFixes.js"></script>
+<script src="http://gamingJS.com/Scoreboard.js"></script>
+<script src="http://gamingJS.com/Sounds.js"></script>
+<script>
+  // This is where stuff in our game will happen:
+  const scene = new THREE.Scene();
+
+  // This is what sees the stuff:
+  const aspect_ratio = window.innerWidth / window.innerHeight;
+  const camera = new THREE.PerspectiveCamera(75, aspect_ratio, 1, 10000);
+  camera.position.z = 500;
+
+  // This will draw what the camera sees onto the screen:
+  const renderer = new THREE.CanvasRenderer();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);
+
+  // ******** START CODING ON THE NEXT LINE ********
+  let game_over = false;
+  
+  function resetScoreBoard(scoreboard) {
+    scoreboard.countdown(45);
+    scoreboard.score();
+  }
+  let scoreboard = new Scoreboard();
+  scoreboard.help(
+    'Arrow keys to move. ' +
+    'Space bar to jump for fruit. ' +
+    'R to restar' +
+    'Watch for shaking trees with fruit.' +
+    'Get near the tree and jump before the fruit is gone!'
+  );
+
+  const not_allowed = [];
+  //Holder for camera pointing to the avatar
+  const marker = new THREE.Object3D();
+  scene.add(marker);
+
+  // --- Making an avatar ---
+  const cover = new THREE.MeshNormalMaterial();
+  const body = new THREE.SphereGeometry(100);
+  const avatar = new THREE.Mesh(body, cover);
+  marker.add(avatar);
+  //hands
+  const right_hand = addExtremity(-140);
+  const left_hand = addExtremity(140);
+  //feet
+  const right_foot = addExtremity(70, -120);
+  const left_foot = addExtremity(-70, -120);
+  
+  function addExtremity(x, y=0) {
+    const extremity = new THREE.Mesh(new THREE.SphereGeometry(50), cover);
+    extremity.position.set(x, y, 0);
+    avatar.add(extremity);
+    return extremity;
+  }
+  
+  //adding Camera
+  marker.add(camera);
+  
+  // --- Making trees
+  let tree_with_treasure;
+  const treesPositions = [
+    {x:500}, {x:-500}, {x:750, z:-1000}, {x:-750, z:-1000}
+  ];
+  const trees = [];
+  treesPositions.forEach(treePosition => {
+    trees.push(makeTreeAt(treePosition.x, treePosition.z));
+  });
+
+  function makeTreeAt(x, z=0) {
+    const trunk = new THREE.Mesh(
+      new THREE.CylinderGeometry(50, 50, 200),
+      new THREE.MeshBasicMaterial({color: 0xA0522D})
+    );
+    const top = new THREE.Mesh(
+      new THREE.SphereGeometry(150),
+      new THREE.MeshBasicMaterial({color: 0x228B22})
+    );
+    top.position.y = 175;
+    trunk.add(top);
+    var boundary = new THREE.Mesh(
+      new THREE.CircleGeometry(300),
+      new THREE.MeshNormalMaterial()
+    );
+    boundary.position.y = -100;
+    boundary.rotation.x = -Math.PI/2;
+    trunk.add(boundary);
+    not_allowed.push(boundary);
+    trunk.position.set(x, -75, z);
+    scene.add(trunk);
+    return top;
+  }
+  
+  let shakeTreeTimeout = null;
+  function shakeTree() {
+    if (game_over) {
+      clearTimeout(shakeTreeTimeout);
+      return;
+    }
+    tree_with_treasure = Math.floor(Math.random() * trees.length);
+    new TWEEN
+      .Tween({x: 0})
+      .to({x: 2*Math.PI}, 200)
+      .repeat(20)
+      .onUpdate(function () {
+        trees[tree_with_treasure].position.x = 75 * Math.sin(this.x);
+      })
+      .start();
+    clearTimeout(shakeTreeTimeout);
+    shakeTreeTimeout = setTimeout(shakeTree, 12*1000);
+  }
+  
+  let is_moving_right, is_moving_left, is_moving_forward, is_moving_back, is_cartwheeling, is_flipping;
+
+  // Now, show what the camera sees on the screen:
+  const clock = new THREE.Clock(true);
+  function animate() {
+    requestAnimationFrame(animate);
+    TWEEN.update();
+    walk();
+    turn();
+    acrobatics();
+    renderer.render(scene, camera);
+  }
+  
+  function reset() {
+    resetScoreBoard(scoreboard);
+    game_over = false;
+    marker.position.set(0,0,0);
+    trees.forEach(treeTop => treeTop.position.x = 0);
+    shakeTree();
+    animate();
+  }
+  reset();
+  
+  scoreboard.onTimeExpired(() => {
+    scoreboard.message("Game Over!");
+    game_over = true;
+  });
+  
+  function walk() {
+    if (!isWalking()) return;
+    const position = Math.sin(clock.getElapsedTime()*5) * 50;
+    right_hand.position.z = position;
+    left_hand.position.z = -position;
+    right_foot.position.z = position;
+    left_foot.position.z = -position;
+  }
+  
+  function turn() {
+    //that angles, the amount of rotation, use radians instead of degrees
+    let direction = 0;
+    if (is_moving_forward) direction = Math.PI; // =180°
+    if (is_moving_back) direction = 0;
+    if (is_moving_right) direction = Math.PI/2; // =90°
+    if (is_moving_left) direction = -Math.PI/2;
+    spinAvatar(direction);
+  }
+  
+  function spinAvatar(direction) {
+    new TWEEN.
+      Tween({y: avatar.rotation.y}).
+      to({y: direction}, 100).
+      onUpdate(function () {
+        avatar.rotation.y = this.y;
+      }).
+      start();
+  }
+  
+  function isWalking() {
+    return is_moving_right || is_moving_left || is_moving_forward || is_moving_back;
+  }
+  
+  function acrobatics() {
+    if (is_cartwheeling) {
+      avatar.rotation.z += 0.05;
+    }
+    if (is_flipping) {
+      avatar.rotation.x += 0.05;
+    }
+  }
+  
+  const step = 15;
+  document.addEventListener('keydown', function(event) {
+    switch (event.keyCode) {
+      case 32:
+        jump();
+        break;
+      case 37:
+        marker.position.x -= step; // left
+        is_moving_left = true;
+        break;
+      case 38:
+        marker.position.z -= step; // up
+        is_moving_forward = true;
+        break;
+      case 39:
+        marker.position.x += step; // right
+        is_moving_right = true;
+        break;
+      case 40:
+        marker.position.z += step; // down
+        is_moving_back = true;
+        break;
+      case 67:
+        is_cartwheeling = !is_cartwheeling; // C
+        break;
+      case 70:
+        is_flipping = !is_flipping; // F
+        break;
+      case 82:
+        reset(); // R
+        break;
+    }
+    if (detectCollisions()) {
+      if (is_moving_left) marker.position.x += step;
+      if (is_moving_right) marker.position.x -= step;
+      if (is_moving_forward) marker.position.z += step;
+      if (is_moving_back) marker.position.z -= step;
+    }
+  });
+  
+  document.addEventListener('keyup', function(event) {
+    switch (event.keyCode) {
+      case 37:
+        is_moving_left = false;
+        break;
+      case 38:
+        is_moving_forward = false;
+        break;
+      case 39:
+        is_moving_right = false;
+        break;
+      case 40:
+        is_moving_back = false;
+        break;
+    }
+  });
+  
+  function detectCollisions() {
+    const vector = new THREE.Vector3(0, -1, 0);
+    const ray = new THREE.Ray(marker.position, vector);
+    return !!ray.intersectObjects(not_allowed).length;
+  }
+  
+  function jump() {
+    checkForTreasure();
+    animateJump();
+  }
+  
+  function checkForTreasure() {
+    if (tree_with_treasure == undefined) return;
+    const treasure_tree = trees[tree_with_treasure],
+    p1 = treasure_tree.parent.position,
+    p2 = marker.position;
+    const distance = Math.sqrt(
+      (p1.x - p2.x)*(p1.x - p2.x) +
+      (p1.z - p2.z)*(p1.z - p2.z)
+    );
+    if (distance < 500) {
+      scorePoints();
+    }
+  }
+  
+  function scorePoints() {
+    if (game_over) return;
+    scoreboard.addPoints(10);
+    Sounds.bubble.play();
+    animateFruit();
+  }
+  
+  let fruit;
+  function animateFruit() {
+    if (fruit) return;
+    fruit = new THREE.Mesh(
+      new THREE.CylinderGeometry(25, 25, 5, 25),
+      new THREE.MeshBasicMaterial({color: 0xFFD700})
+    );
+    fruit.rotation.x = Math.PI/2;
+    marker.add(fruit);
+    new TWEEN.
+      Tween({height: 150, spin: 0}).
+      to({height: 250, spin: 4}, 500).
+      onUpdate(function () {
+        fruit.position.y = this.height;
+        fruit.rotation.z = this.spin;
+      }).
+      onComplete(function() {
+        marker.remove(fruit);
+        fruit = undefined;
+      }).
+      start();
+  }
+  
+  function animateJump() {
+    new TWEEN
+      .Tween({jump: 0})
+      .to({jump: Math.PI}, 500)
+      .onUpdate(function () {
+        marker.position.y = 200 * Math.sin(this.jump);
+      })
+      .start();
+  }
+</script>
+  </body>
+</html>
