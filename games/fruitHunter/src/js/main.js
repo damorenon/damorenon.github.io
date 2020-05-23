@@ -382,7 +382,6 @@ function checkForTreasure() {
 function scorePoints() {
   if (gameOver) return;
   scoreboard.addPoints(10);
-  Sounds.bubble.play();
   animateFruit(marker, avatarfruit);
 }
 
