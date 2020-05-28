@@ -10,9 +10,52 @@ camera.position.y = 100;
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
+document.body.style.backgroundColor = "#87CEEB";
 
 // ******** START CODING ON THE NEXT LINE ********
 let gameOver = false;
+
+function createGroud() {
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(10000, 10000),
+    new THREE.MeshBasicMaterial({ color: 0x7cfc00 })
+  );
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = -180;
+  scene.add(ground);
+}
+createGroud();
+
+function createMountain(x) {
+  const mountain = new THREE.Mesh(
+    new THREE.CylinderGeometry(1, 7000, 3000, 6),
+    new THREE.MeshBasicMaterial({ color: 0x479357 })
+  );
+  mountain.position.x = x;
+  mountain.position.z = -8000;
+  return mountain;
+}
+
+function addMountains() {
+  const mountain0 = createMountain(-8000);
+  const mountain1 = createMountain(-4000);
+  const mountain2 = createMountain(2000);
+  const mountain3 = createMountain(7000);
+  scene.add(mountain0);
+  scene.add(mountain1);
+  scene.add(mountain2);
+  scene.add(mountain3);
+}
+addMountains();
+
+function addSun() {
+  const surface = new THREE.MeshBasicMaterial({ color: 0xffd700 }); //gold
+  const star = new THREE.SphereGeometry(200, 200, 21);
+  const sun = new THREE.Mesh(star, surface);
+  sun.position.set(2000, 5000, -8000);
+  scene.add(sun);
+}
+addSun();
 
 let countdown = 60;
 function resetScoreBoard(scoreboard) {
@@ -120,7 +163,7 @@ function makeTreeAt(x, z = 0) {
   treeBoundaries.push(boundary);
   trunk.position.set(x, -75, z);
   scene.add(trunk);
-  top.availableFruits = 10;
+  top.availableFruits = 30;
   return top;
 }
 
