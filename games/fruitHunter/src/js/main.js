@@ -275,7 +275,7 @@ function addObstacles(index) {
 
 function createObstacle(x, z, rotation) {
   const shape = new THREE.CubeGeometry(700, 80, 25);
-  const cover = new THREE.MeshNormalMaterial();
+  const cover = new THREE.MeshBasicMaterial({ color: 0xb76f20 });
   obstacle = new THREE.Mesh(shape, cover);
   obstacle.position.set(x, -75, z);
   if (rotation) obstacle.rotation.y = rotation;
